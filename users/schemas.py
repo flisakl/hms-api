@@ -3,6 +3,9 @@ from ninja import (
 )
 from django.utils.translation import gettext_lazy as _
 from pydantic import field_validator, EmailStr, ValidationInfo
+from typing import Optional
+
+from .models import User
 
 
 class PasswordMixin(Schema):
@@ -47,6 +50,8 @@ class PasswordMixin(Schema):
 
 
 class RegistrationSchema(PasswordMixin):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     username: str
     email: EmailStr
 
@@ -59,3 +64,16 @@ class RegistrationSchema(PasswordMixin):
                 msg = _('must contain only digits and letters')
                 raise ValueError(msg)
         return value
+
+
+class UserSchema(ModelSchema):
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'avatar', 'is_superuser', 'is_staff'
+        ]
+
+
+class LoginSchemaOut(UserSchema):
+    token: str

@@ -4,7 +4,7 @@ from ninja.testing import TestAsyncClient
 from users.api import router
 
 
-class TestRegistration(TestHelper):
+class TestCreate(TestHelper):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -52,3 +52,47 @@ class TestRegistration(TestHelper):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(len(json), 1)
         self.assertIn('username', json[0]['loc'])
+
+
+class TestRead(TestHelper):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.data = {
+            'first_name': 'Jane',
+            'username': 'Jane99',
+            'email': 'jane@example.com',
+            'password1': 'Test1234',
+            'password2': 'Test1234'
+        }
+
+    def setUp(self):
+        self.client = TestAsyncClient(router)
+
+    async def test_only_superuser_can_retrieve_user_list(self):
+        super = await self.create_user(superuser=True)
+        normie = await self.create_user(username='Mike')
+        await self.create_user(username='Johnny')
+        path = '?username=jo'
+
+        response = await self.client.get(path, headers=self.make_auth_header(super))
+        response2 = await self.client.get(path, headers=self.make_auth_header(normie))
+        json = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response2.status_code, 401)
+        self.assertEqual(len(json), 2)
+
+    async def test_only_superuser_can_retrieve_user(self):
+        super = await self.create_user(superuser=True)
+        normie = await self.create_user(username='Mike')
+        await self.create_user(username='Johnny')
+        path = f'{super.pk}'
+
+        response = await self.client.get(path, headers=self.make_auth_header(super))
+        response2 = await self.client.get(path, headers=self.make_auth_header(normie))
+        json = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response2.status_code, 401)
+        self.assertEqual(json['username'], super.username)

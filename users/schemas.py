@@ -1,6 +1,4 @@
-from ninja import (
-    ModelSchema, Schema
-)
+from ninja import ModelSchema, Schema, FilterSchema, Field
 from django.utils.translation import gettext_lazy as _
 from pydantic import field_validator, EmailStr, ValidationInfo
 from typing import Optional
@@ -77,3 +75,12 @@ class UserSchema(ModelSchema):
 
 class LoginSchemaOut(UserSchema):
     token: str
+
+
+class UserFilter(FilterSchema):
+    username: Optional[str] = Field(
+        None, q=['username__icontains', 'email__icontains'])
+    first_name: Optional[str] = Field(None, q='first_name__icontains')
+    last_name: Optional[str] = Field(None, q='last_name__icontains')
+    is_superuser: Optional[bool] = None
+    is_staff: Optional[bool] = None

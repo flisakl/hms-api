@@ -25,3 +25,8 @@ class TestHelper(TestCase):
 
     async def create_staff_member(self, **kwargs):
         return await TestHelper.create_user(staff=True, **kwargs)
+
+    def make_auth_header(self, user: User):
+        return {
+            'Authorization': f'Bearer {user.token}'
+        }

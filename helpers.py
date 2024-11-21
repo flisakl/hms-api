@@ -1,5 +1,14 @@
+import os
+import magic
+import tempfile
+from PIL import Image
+from ninja.errors import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.test import TestCase
+from django.conf import settings
+from django.core.files import File
+from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import TemporaryUploadedFile
 
 from users.models import User
 
@@ -11,7 +20,29 @@ def make_errors(field_name: str, msg):
     }
 
 
+def image_is_valid(image: TemporaryUploadedFile):
+    path = image.temporary_file_path()
+    # check content type
+    if "image" not in image.content_type:
+        return False
+
+    # verify with Pillow
+    try:
+        with Image.open(path) as img:
+            img.verify()
+    except (IOError, SyntaxError):
+        return False
+
+    # check content with libmagic
+    if "image" not in magic.Magic(mime=True).from_file(path):
+        return False
+
+    return True
+
+
 class TestHelper(TestCase):
+    DATA_DIR = settings.BASE_DIR / 'test_data/'
+
     async def create_user(self, username='john', password='test1234',
                           superuser=False, staff=False, email=None,
                           image=None):
@@ -30,3 +61,26 @@ class TestHelper(TestCase):
         return {
             'Authorization': f'Bearer {user.token}'
         }
+
+    # Helpers for handling files
+    def get_fp(self, filename: str):
+        return os.path.join(self.DATA_DIR,  filename)
+
+    def temp_file(self, file: File, ctype: str = 'image/jpeg', write: bool = False):
+        tf = TemporaryUploadedFile(
+            name=file.name,
+            content_type=ctype,
+            size=file.size,
+            charset='utf-8'
+        )
+
+        if write:
+            tf.file.write(file.read())
+        return tf
+
+    def content_file(self, data: bytes, name: str):
+        return ContentFile(data, name)
+
+    def fileExists(self, location, filename: str):
+        path = os.path.join(location, filename)
+        return os.path.isfile(path)

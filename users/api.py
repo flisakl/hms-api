@@ -1,16 +1,18 @@
 import logging
-from ninja import Router, Form, Query
+from ninja import Router, Form, Query, File
 from ninja.errors import ValidationError
 from ninja.security import HttpBearer
+from ninja.files import UploadedFile
 from django.conf import settings
 from django.http import HttpRequest
 from django.shortcuts import aget_object_or_404
+from django.utils.translation import gettext_lazy as _
 from asgiref.sync import sync_to_async
 from typing import Optional, Any, List
 
-from .schemas import RegistrationSchema, LoginSchemaOut, UserSchema, UserFilter
+from .schemas import RegistrationSchema, LoginSchemaOut, UserSchema, UserFilter, UserUpdateSchema
 from .models import User
-from helpers import make_errors
+from helpers import make_errors, image_is_valid
 
 router = Router(tags=['users'])
 logger = logging.getLogger("django")
@@ -93,3 +95,27 @@ async def get_users(request, filters: Query[UserFilter]):
 @router.get('/{int:user_id}', response=UserSchema, auth=AsyncHttpBearer(is_superuser=True))
 async def get_user(request, user_id: int):
     return await aget_object_or_404(User, pk=user_id)
+
+
+@router.patch('', response=LoginSchemaOut, auth=AsyncHttpBearer())
+async def update_user(request, data: Form[UserUpdateSchema], avatar:
+                      UploadedFile = File(None)):
+    data = data.dict(exclude_unset=True)
+    user = request.auth
+
+    # Set attributes
+    for k, value in data.items():
+        setattr(user, k, value)
+
+    if avatar:
+        # Check if provided image is valid
+        if not image_is_valid(avatar):
+            raise ValidationError([
+                make_errors("avatar", _("File is not a valid image"))
+            ])
+        if user.avatar:
+            await sync_to_async(user.avatar.delete)(save=False)
+        await sync_to_async(user.avatar.save)(avatar.name, avatar, save=False)
+
+    await user.asave()
+    return user

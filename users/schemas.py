@@ -84,3 +84,8 @@ class UserFilter(FilterSchema):
     last_name: Optional[str] = Field(None, q='last_name__icontains')
     is_superuser: Optional[bool] = None
     is_staff: Optional[bool] = None
+
+
+class UserUpdateSchema(Schema):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None

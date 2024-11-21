@@ -195,3 +195,11 @@ async def login(request, data: Form[LoginSchemaIn]):
 
     if errors:
         raise ValidationError(errors)
+
+
+@router.patch('/generate-token', auth=AsyncHttpBearer(), response=LoginSchemaOut)
+async def generate_token(request):
+    user = request.auth
+    user._generate_token()
+    await user.asave()
+    return user

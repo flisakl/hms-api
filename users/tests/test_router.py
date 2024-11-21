@@ -1,4 +1,5 @@
 import tempfile
+import time
 from django.core.files import File
 from helpers import TestHelper
 from ninja.testing import TestAsyncClient
@@ -223,3 +224,17 @@ class TestMisc(TestHelper):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(js['username'], user.username)
+
+    async def test_user_can_generate_new_token(self):
+        upass = 'Test1234'
+        user = await self.create_user(superuser=True, password=upass)
+        old_token = user.token
+        headers = self.make_auth_header(user)
+        url = '/generate-token'
+        # Request is processed to fast
+        time.sleep(1)
+        response = await self.client.patch(url, headers=headers)
+        js = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(old_token, js["token"])

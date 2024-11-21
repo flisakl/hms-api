@@ -1,8 +1,6 @@
 import os
 import magic
-import tempfile
 from PIL import Image
-from ninja.errors import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.test import TestCase
 from django.conf import settings

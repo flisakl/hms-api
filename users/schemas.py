@@ -89,3 +89,7 @@ class UserFilter(FilterSchema):
 class UserUpdateSchema(Schema):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+
+
+class PasswordChangeSchema(PasswordMixin):
+    old_password: str

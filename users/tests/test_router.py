@@ -143,9 +143,6 @@ class TestUpdate(TestHelper):
 
 
 class TestDelete(TestHelper):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
 
     def setUp(self):
         self.client = TestAsyncClient(router)
@@ -167,3 +164,25 @@ class TestDelete(TestHelper):
             # User no longer exists in database
             with self.assertRaises(User.DoesNotExist):
                 await User.objects.aget(pk=user.pk)
+
+
+class TestMisc(TestHelper):
+    def setUp(self):
+        self.client = TestAsyncClient(router)
+
+    async def test_user_can_change_his_password(self):
+        passwd = 'Test1234'
+        newpass = 'NewCoolPassword1'
+        user = await self.create_user(password=passwd)
+        data = {
+            'old_password': passwd,
+            'password1': newpass, 'password2': newpass,
+        }
+        headers = self.make_auth_header(user)
+
+        url = 'password-change'
+        response = await self.client.post(url, data, headers=headers)
+
+        await user.arefresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(user.check_password(newpass))

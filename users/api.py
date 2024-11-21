@@ -10,7 +10,10 @@ from django.utils.translation import gettext_lazy as _
 from asgiref.sync import sync_to_async
 from typing import Optional, Any, List
 
-from .schemas import RegistrationSchema, LoginSchemaOut, UserSchema, UserFilter, UserUpdateSchema
+from .schemas import (
+    RegistrationSchema, LoginSchemaOut, UserSchema,
+    UserFilter, UserUpdateSchema, PasswordChangeSchema
+)
 from .models import User
 from helpers import make_errors, image_is_valid
 
@@ -131,3 +134,28 @@ async def delete_account(request):
 
     await user.adelete()
     return 204, None
+
+
+@router.post('/password-change', auth=AsyncHttpBearer(), response=LoginSchemaOut)
+async def change_password(request, data: Form[PasswordChangeSchema]):
+    user = request.auth
+    errors = []
+
+    # Check if `old_password` matches current
+    if not user.check_password(data.old_password):
+        errors.append(
+            make_errors('old_password', _('Old password is invalid'))
+        )
+    else:
+        # No point changing the password to the same one
+        if data.old_password == data.password1:
+            errors.append(
+                make_errors('old_password', _('New password can not be the same'))
+            )
+        else:
+            user.set_password(data.password1)
+            await user.asave()
+            return user
+
+    if errors:
+        raise ValidationError(errors)

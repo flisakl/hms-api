@@ -208,3 +208,18 @@ class TestMisc(TestHelper):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(True, js['is_superuser'] == js['is_staff'])
         self.assertEqual(response2.status_code, 401)
+
+    async def test_guest_can_log_in(self):
+        upass = 'Test1234'
+        user = await self.create_user(superuser=True, password=upass)
+        data = {
+            'username': user.email,
+            'password': upass
+        }
+
+        url = '/login'
+        response = await self.client.post(url, data)
+        js = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(js['username'], user.username)

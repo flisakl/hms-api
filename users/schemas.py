@@ -77,6 +77,11 @@ class LoginSchemaOut(UserSchema):
     token: str
 
 
+class LoginSchemaIn(Schema):
+    username: str
+    password: str
+
+
 class UserFilter(FilterSchema):
     username: Optional[str] = Field(
         None, q=['username__icontains', 'email__icontains'])

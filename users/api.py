@@ -3,6 +3,7 @@ from ninja import Router, Form, Query, File
 from ninja.errors import ValidationError
 from ninja.security import HttpBearer
 from ninja.files import UploadedFile
+from django.db.models import Q
 from django.conf import settings
 from django.http import HttpRequest
 from django.shortcuts import aget_object_or_404
@@ -13,7 +14,7 @@ from typing import Optional, Any, List
 from .schemas import (
     RegistrationSchema, LoginSchemaOut, UserSchema,
     UserFilter, UserUpdateSchema, PasswordChangeSchema,
-    RoleSchema
+    RoleSchema, LoginSchemaIn
 )
 from .models import User
 from helpers import make_errors, image_is_valid
@@ -171,3 +172,26 @@ async def update_role(request, user_id: int, data: Form[RoleSchema]):
     user.is_staff = data.is_staff
     await user.asave()
     return 200, user
+
+
+@router.post('/login', response=LoginSchemaOut)
+async def login(request, data: Form[LoginSchemaIn]):
+    errors = []
+    try:
+        user = await User.objects.aget(
+            Q(username=data.username) | Q(email=data.username))
+
+        if user.check_password(data.password):
+            return user
+
+        errors.append(
+            make_errors('password', _('Invalid password'))
+        )
+
+    except User.DoesNotExist:
+        errors.append(
+            make_errors('password', _('Wrong username or email address'))
+        )
+
+    if errors:
+        raise ValidationError(errors)

@@ -186,3 +186,25 @@ class TestMisc(TestHelper):
         await user.arefresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(user.check_password(newpass))
+
+    async def test_superuser_can_change_user_role(self):
+        user = await self.create_user(superuser=True)
+        normie = await self.create_user(username="Frank")
+        data = {
+            'is_superuser': True,
+            'is_staff': True,
+        }
+        headers = self.make_auth_header(user)
+        headers2 = self.make_auth_header(normie)
+
+        url = f'/{normie.pk}'
+        # Performed by normie
+        response2 = await self.client.post(url, data, headers=headers2)
+        # Performed by superuser
+        response = await self.client.post(url, data, headers=headers)
+        js = response.json()
+
+        await normie.arefresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(True, js['is_superuser'] == js['is_staff'])
+        self.assertEqual(response2.status_code, 401)

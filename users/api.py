@@ -12,7 +12,8 @@ from typing import Optional, Any, List
 
 from .schemas import (
     RegistrationSchema, LoginSchemaOut, UserSchema,
-    UserFilter, UserUpdateSchema, PasswordChangeSchema
+    UserFilter, UserUpdateSchema, PasswordChangeSchema,
+    RoleSchema
 )
 from .models import User
 from helpers import make_errors, image_is_valid
@@ -150,7 +151,8 @@ async def change_password(request, data: Form[PasswordChangeSchema]):
         # No point changing the password to the same one
         if data.old_password == data.password1:
             errors.append(
-                make_errors('old_password', _('New password can not be the same'))
+                make_errors('old_password', _(
+                    'New password can not be the same'))
             )
         else:
             user.set_password(data.password1)
@@ -159,3 +161,13 @@ async def change_password(request, data: Form[PasswordChangeSchema]):
 
     if errors:
         raise ValidationError(errors)
+
+
+@router.post('/{int:user_id}', auth=AsyncHttpBearer(is_superuser=True),
+             response=UserSchema)
+async def update_role(request, user_id: int, data: Form[RoleSchema]):
+    user = await aget_object_or_404(User, pk=user_id)
+    user.is_superuser = data.is_superuser
+    user.is_staff = data.is_staff
+    await user.asave()
+    return 200, user

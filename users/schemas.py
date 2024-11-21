@@ -93,3 +93,8 @@ class UserUpdateSchema(Schema):
 
 class PasswordChangeSchema(PasswordMixin):
     old_password: str
+
+
+class RoleSchema(Schema):
+    is_superuser: bool
+    is_staff: bool

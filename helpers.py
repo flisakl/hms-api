@@ -53,7 +53,7 @@ class TestHelper(TestCase):
         return user
 
     async def create_staff_member(self, **kwargs):
-        return await TestHelper.create_user(staff=True, **kwargs)
+        return await self.create_user(staff=True, **kwargs)
 
     def make_auth_header(self, user: User):
         return {

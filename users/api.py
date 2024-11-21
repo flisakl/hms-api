@@ -119,3 +119,15 @@ async def update_user(request, data: Form[UserUpdateSchema], avatar:
 
     await user.asave()
     return user
+
+
+@router.delete('', auth=AsyncHttpBearer(), response={204: None})
+async def delete_account(request):
+    user = request.auth
+
+    # Delete user's avatar
+    if (user.avatar):
+        await sync_to_async(user.avatar.delete)(save=False)
+
+    await user.adelete()
+    return 204, None

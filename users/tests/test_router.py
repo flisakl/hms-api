@@ -4,6 +4,7 @@ from helpers import TestHelper
 from ninja.testing import TestAsyncClient
 
 from users.api import router
+from users.models import User
 
 
 class TestCreate(TestHelper):
@@ -120,7 +121,8 @@ class TestUpdate(TestHelper):
                 FILES={'avatar': img_to_upload})
 
             self.assertEqual(response.status_code, 200)
-            self.assertTrue(self.fileExists(td, f"avatars/{img_to_upload.name}"))
+            self.assertTrue(self.fileExists(
+                td, f"avatars/{img_to_upload.name}"))
 
     async def test_user_must_provide_valid_image(self):
         with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s, open(self.get_fp("image.jpg"), "rb") as f:
@@ -138,3 +140,30 @@ class TestUpdate(TestHelper):
             self.assertEqual(response.status_code, 422)
             self.assertFalse(self.fileExists(td, av.name))
             self.assertTrue(self.fileExists(td, f"avatars/{image.name}"))
+
+
+class TestDelete(TestHelper):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+    def setUp(self):
+        self.client = TestAsyncClient(router)
+
+    async def test_user_can_delete_his_account(self):
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s:
+            av = self.temp_file(self.content_file(b"", "junk.pdf"))
+            user = await self.create_user(image=av)
+
+            self.assertTrue(self.fileExists(td, f'avatars/{av.name}'))
+
+            response = await self.client.delete(
+                '', headers=self.make_auth_header(user)
+            )
+
+            self.assertEqual(response.status_code, 204)
+            # Avatar has been deleted
+            self.assertFalse(self.fileExists(td, f'avatars/{av.name}'))
+            # User no longer exists in database
+            with self.assertRaises(User.DoesNotExist):
+                await User.objects.aget(pk=user.pk)

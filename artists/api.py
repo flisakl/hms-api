@@ -90,3 +90,15 @@ async def update_artist(
     await artist.asave()
 
     return 200, artist
+
+
+@router.delete('/{int:artistID}', response={204: None})
+async def delete_artist(request, artistID: int):
+    artist = await aget_object_or_404(Artist, pk=artistID)
+
+    # Delete artists image
+    if artist.image:
+        await sync_to_async(artist.image.delete)(save=False)
+
+    await artist.adelete()
+    return 204, None

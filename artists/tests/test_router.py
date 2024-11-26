@@ -114,3 +114,34 @@ class TestRouter(TestHelper):
             self.assertTrue(self.fileExists(td, f"artists/{img_to_upload.name}"))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(json['name'], 'Billy Joel')
+
+    async def test_regular_user_can_not_delete_artist(self):
+        user = await self.create_user()
+        data = {'name': 'Billy Joel'}
+        head = {'Authorization': f"Bearer {user.token}"}
+        artist = await Artist.objects.acreate(name='Test')
+        url = f"/{artist.pk}"
+
+        response = await self.client.delete(url, data, headers=head)
+
+        self.assertEqual(response.status_code, 401)
+
+    async def test_staff_member_can_delete_artist(self):
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s:
+            old_avatar = self.content_file(b"", "test.jpg")
+            member = await self.create_staff_member()
+            head = self.make_auth_header(member)
+
+            artist = await Artist.objects.acreate(
+                name='Billy Joelio', image=old_avatar)
+
+            url = f"/{artist.pk}"
+            self.assertTrue(self.fileExists(td, 'artists/test.jpg'))
+            response = await self.client.delete(url, headers=head)
+            response2 = await self.client.delete(url, headers=head)
+
+            self.assertEqual(response.status_code, 204)
+            self.assertEqual(response2.status_code, 404)
+            self.assertFalse(self.fileExists(td, 'artists/test.jpg'))
+            with self.assertRaises(Artist.DoesNotExist):
+                await Artist.objects.aget(pk=artist.pk)

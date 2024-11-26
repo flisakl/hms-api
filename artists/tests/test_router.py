@@ -5,6 +5,7 @@ from django.core.files import File
 from helpers import TestHelper
 
 from artists.api import router
+from artists.models import Artist
 
 
 class TestRouter(TestHelper):
@@ -31,3 +32,39 @@ class TestRouter(TestHelper):
             self.assertEqual(res.status_code, 201)
             self.assertEqual(res2.status_code, 401)
             self.assertJSONEqual(res.content, expected)
+
+    async def test_guest_user_can_filter_artists_by_name(self):
+        artists = [
+            Artist(name='Bob Marley'), Artist(name='Johnny Cash'),
+            Artist(name='Bob Dylan'), Artist(name='Billy Joel'),
+        ]
+        await Artist.objects.abulk_create(artists)
+
+        response = await self.client.get('?name=bob')
+        json = response.json()
+
+        self.assertEqual(json['count'], 2)
+        self.assertIn('Bob', json['items'][0]['name'])
+        self.assertIn('Bob', json['items'][1]['name'])
+
+    async def test_guest_user_can_access_artist_data(self):
+        artist = await Artist.objects.acreate(name='Dawid Bowie')
+        # TODO uncomment the code once Album model is defined
+        # await Album.objects.acreate(name='The Man Who Sold The World',
+        #                             artist=artist)
+
+        response = await self.client.get(f"/{artist.pk}")
+
+        expected = {
+            'id': 1,
+            'name': 'Dawid Bowie',
+            'image': None,
+            # 'albums': [
+            #     {
+            #         'id': 1,
+            #         'name': 'The Man Who Sold The World',
+            #         'cover': None
+            #     }
+            # ]
+        }
+        self.assertJSONEqual(response.content, expected)

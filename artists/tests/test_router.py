@@ -68,3 +68,49 @@ class TestRouter(TestHelper):
             # ]
         }
         self.assertJSONEqual(response.content, expected)
+
+    async def test_regular_user_can_not_update_artist(self):
+        user = await self.create_user()
+        data = {'name': 'Billy Joel'}
+        head = self.make_auth_header(user)
+        artist = await Artist.objects.acreate(name='Test')
+
+        response = await self.client.put(f"/{artist.pk}", data, headers=head)
+
+        self.assertEqual(response.status_code, 401)
+
+    async def test_staff_member_can_update_artist(self):
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s, open(self.get_fp("image.jpg"), "rb") as f:
+            data = {'name': 'Billy Joel'}
+            img_to_upload = self.temp_file(File(f, "avatar.jpg"), write=True)
+            old_avatar = self.content_file(b"", "test.jpg")
+            member = await self.create_staff_member()
+            head = self.make_auth_header(member)
+
+            artist = await Artist.objects.acreate(
+                name='Billy Joelio', image=old_avatar)
+            response = await self.client.put(
+                f"/{artist.pk}", data, FILES={'image': img_to_upload},
+                headers=head)
+            json = response.json()
+
+            self.assertFalse(self.fileExists(td, f"artists/{old_avatar.name}"))
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(json['name'], 'Billy Joel')
+            self.assertTrue(self.fileExists(td, f"artists/{img_to_upload.name}"))
+
+    async def test_staff_member_can_add_artist_with_put_request(self):
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s, open(self.get_fp("image.jpg"), "rb") as f:
+            data = {'name': 'Billy Joel'}
+            img_to_upload = self.temp_file(File(f, "avatar.jpg"), write=True)
+            member = await self.create_staff_member()
+            head = self.make_auth_header(member)
+
+            response = await self.client.put(
+                "/1", data, FILES={'image': img_to_upload},
+                headers=head)
+            json = response.json()
+
+            self.assertTrue(self.fileExists(td, f"artists/{img_to_upload.name}"))
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(json['name'], 'Billy Joel')

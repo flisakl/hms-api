@@ -5,7 +5,7 @@ from ninja.errors import ValidationError
 from django.db import IntegrityError
 from django.utils.translation import gettext_lazy as _
 from django.shortcuts import aget_object_or_404
-from typing import List
+from typing import List, Optional
 from asgiref.sync import sync_to_async
 
 from .schemas import ArtistSchema, ArtistFilter, ArtistAndAlbumsSchema
@@ -53,3 +53,40 @@ async def get_artist(request, artistID: int):
     # qs = Artist.objects.prefetch_related('album_set')
     qs = Artist.objects.all()
     return await aget_object_or_404(qs, pk=artistID)
+
+
+@router.put('/{int:artistID}', response=ArtistSchema)
+async def update_artist(
+    request, artistID: int, name: Form[Optional[str]], image: UploadedFile = File(None)
+):
+    # Check if artist exists
+    created = False
+    try:
+        artist = await Artist.objects.aget(pk=artistID)
+    except Artist.DoesNotExist:
+        created = True
+        artist = Artist()
+
+    if name:
+        # Check if the name is unique
+        try:
+            named_artist = await Artist.objects.aget(name=name)
+            # Name is already taken by other record
+            if (not created and named_artist.pk != artist.pk) or created:
+                raise ValidationError(make_errors(
+                    'name', _('Artist already exists')))
+        except Artist.DoesNotExist:
+            artist.name = name
+
+    if image and image_is_valid(image):
+        # Remove old image
+        if artist.image:
+            await sync_to_async(artist.image.delete)(save=False)
+        await sync_to_async(artist.image.save)(image.name, image, save=False)
+    else:
+        raise ValidationError(make_errors(
+            'image', _('File is not an image')))
+
+    await artist.asave()
+
+    return 200, artist

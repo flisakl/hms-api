@@ -9,6 +9,8 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import TemporaryUploadedFile
 
 from users.models import User
+from artists.models import Artist
+from albums.models import Album
 
 
 def make_errors(field_name: str, msg):
@@ -54,6 +56,16 @@ class TestHelper(TestCase):
 
     async def create_staff_member(self, **kwargs):
         return await self.create_user(staff=True, **kwargs)
+
+    async def create_artist(self, name='Billy Joel'):
+        return await Artist.objects.acreate(name=name)
+
+    async def create_album(self, name: str, artist: Artist = None):
+        if not artist:
+            artist = await self.create_artist()
+        album = Album(name=name, artist=artist)
+        await album.asave()
+        return album
 
     def make_auth_header(self, user: User):
         return {

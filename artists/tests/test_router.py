@@ -6,6 +6,7 @@ from helpers import TestHelper
 
 from artists.api import router
 from artists.models import Artist
+from albums.models import Album
 
 
 class TestRouter(TestHelper):
@@ -27,7 +28,7 @@ class TestRouter(TestHelper):
             expected = {
                 'id': 1,
                 'name': 'Billy Joel',
-                'image': '/media/artists/image.jpg'
+                'image': '/media/artists/image.jpg',
             }
             self.assertEqual(res.status_code, 201)
             self.assertEqual(res2.status_code, 401)
@@ -48,24 +49,25 @@ class TestRouter(TestHelper):
         self.assertIn('Bob', json['items'][1]['name'])
 
     async def test_guest_user_can_access_artist_data(self):
-        artist = await Artist.objects.acreate(name='Dawid Bowie')
-        # TODO uncomment the code once Album model is defined
-        # await Album.objects.acreate(name='The Man Who Sold The World',
-        #                             artist=artist)
+        artist = await Artist.objects.acreate(name='David Bowie')
+        await Album.objects.acreate(name='The Man Who Sold The World',
+                                    artist=artist)
 
         response = await self.client.get(f"/{artist.pk}")
 
         expected = {
             'id': 1,
-            'name': 'Dawid Bowie',
+            'name': 'David Bowie',
             'image': None,
-            # 'albums': [
-            #     {
-            #         'id': 1,
-            #         'name': 'The Man Who Sold The World',
-            #         'cover': None
-            #     }
-            # ]
+            'albums': [
+                {
+                    'id': 1,
+                    'name': 'The Man Who Sold The World',
+                    'cover': None,
+                    'genre': None,
+                    'year': None,
+                }
+            ]
         }
         self.assertJSONEqual(response.content, expected)
 
@@ -97,7 +99,8 @@ class TestRouter(TestHelper):
             self.assertFalse(self.fileExists(td, f"artists/{old_avatar.name}"))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(json['name'], 'Billy Joel')
-            self.assertTrue(self.fileExists(td, f"artists/{img_to_upload.name}"))
+            self.assertTrue(self.fileExists(
+                td, f"artists/{img_to_upload.name}"))
 
     async def test_staff_member_can_add_artist_with_put_request(self):
         with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s, open(self.get_fp("image.jpg"), "rb") as f:
@@ -111,7 +114,8 @@ class TestRouter(TestHelper):
                 headers=head)
             json = response.json()
 
-            self.assertTrue(self.fileExists(td, f"artists/{img_to_upload.name}"))
+            self.assertTrue(self.fileExists(
+                td, f"artists/{img_to_upload.name}"))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(json['name'], 'Billy Joel')
 

@@ -1,3 +1,4 @@
+from django.db.models import Count
 from ninja import Router, Form, Query, File
 from ninja.pagination import paginate
 from ninja.files import UploadedFile
@@ -8,7 +9,7 @@ from django.shortcuts import aget_object_or_404
 from typing import List, Optional
 from asgiref.sync import sync_to_async
 
-from .schemas import ArtistSchema, ArtistFilter, ArtistAndAlbumsSchema
+from schemas import ArtistSchema, ArtistAlbumCount, ArtistFilter, ArtistFull
 from .models import Artist
 from users.api import AsyncHttpBearer
 from helpers import make_errors, image_is_valid
@@ -40,18 +41,16 @@ async def create_artist(request, name: Form[str], image: UploadedFile = File(Non
         return 201, artist
 
 
-@router.get('', response=List[ArtistSchema], auth=None)
+@router.get('', response=List[ArtistAlbumCount], auth=None)
 @paginate
 async def get_artists(request, filters: Query[ArtistFilter]):
-    qs = Artist.objects.all()
+    qs = Artist.objects.annotate(album_count=Count('album'))
     return await sync_to_async(list)(filters.filter(qs))
 
 
-@router.get('/{int:artistID}', response=ArtistAndAlbumsSchema, auth=None)
+@router.get('/{int:artistID}', response=ArtistFull, auth=None)
 async def get_artist(request, artistID: int):
-    # TODO: Uncomment line below once Album model is defined
-    # qs = Artist.objects.prefetch_related('album_set')
-    qs = Artist.objects.all()
+    qs = Artist.objects.prefetch_related('album_set', 'album_set__artist').annotate(album_count=Count('album'))
     return await aget_object_or_404(qs, pk=artistID)
 
 

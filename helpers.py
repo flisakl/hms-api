@@ -20,21 +20,42 @@ def make_errors(field_name: str, msg):
     }
 
 
-def image_is_valid(image: TemporaryUploadedFile):
-    path = image.temporary_file_path()
-    # check content type
-    if "image" not in image.content_type:
-        return False
+def image_is_valid(image: TemporaryUploadedFile = None, buffer=None):
+    if not image and image == buffer:
+        raise ValueError('`image` or `buffer` must be provided')
 
-    # verify with Pillow
-    try:
-        with Image.open(path) as img:
-            img.verify()
-    except (IOError, SyntaxError):
+    if image:
+        path = image.temporary_file_path()
+        # check content type
+        if "image" not in image.content_type:
+            return False
+
+        # verify with Pillow
+        try:
+            with Image.open(path) as img:
+                img.verify()
+        except (IOError, SyntaxError):
+            return False
+
+        # check content with libmagic
+        if "image" not in magic.Magic(mime=True).from_file(path):
+            return False
+    else:
+        # check content with libmagic
+        if "image" not in magic.Magic(mime=True).from_buffer(buffer):
+            return False
+
+    return True
+
+
+def is_audio_file(audio_file: TemporaryUploadedFile):
+    path = audio_file.temporary_file_path()
+    # check content type
+    if "audio" not in audio_file.content_type:
         return False
 
     # check content with libmagic
-    if "image" not in magic.Magic(mime=True).from_file(path):
+    if "audio" not in magic.Magic(mime=True).from_file(path):
         return False
 
     return True

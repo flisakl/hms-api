@@ -98,3 +98,41 @@ class TestRouter(TestHelper):
         self.assertEqual(json['name'], 'Cold Spring Harbor')
         self.assertEqual(json['artist']['name'], 'Billy Joel')
         self.assertEqual(json['tracks'][0]['title'], 'Why Judy Why')
+
+    async def test_regular_user_can_not_update_album(self):
+        user = await self.create_user()
+        head = self.make_auth_header(user)
+        artist2 = await self.create_artist(name='Johnny Cash')
+        album = await Album.objects.acreate(name='CHS', artist=artist2)
+
+        response = await self.client.put(f"/{album.pk}", headers=head)
+
+        self.assertEqual(response.status_code, 401)
+
+    async def test_staff_member_can_update_album(self):
+        member = await self.create_staff_member()
+        head = self.make_auth_header(member)
+        artist = await self.create_artist()
+        artist2 = await self.create_artist(name='Johnny Cash')
+        album = await Album.objects.acreate(name='CHS', artist=artist2)
+
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s, open(self.get_fp("image.jpg"), "rb") as f:
+            data = {'name': 'Cold Spring Harbor', 'artist_id': artist.pk, 'year': 1971, 'genre': 'Rock'}
+            file = {'cover': self.temp_file(File(f, 'image.jpg'), write=True)}
+            response = await self.client.put(
+                f"/{album.pk}", data, FILES=file, headers=head)
+
+            expected = {
+                'id': 1,
+                'name': 'Cold Spring Harbor',
+                'cover': '/media/albums/image.jpg',
+                'year': 1971,
+                'genre': 'Rock',
+                'artist': {
+                    'id': 1,
+                    'name': 'Billy Joel',
+                    'image': None
+                }
+            }
+            self.assertEqual(response.status_code, 200)
+            self.assertJSONEqual(response.content, expected)

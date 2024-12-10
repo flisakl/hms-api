@@ -41,19 +41,61 @@ async def create_album(request, data: Form[AlbumSchemaIn], cover: UploadedFile =
         errors.append(make_errors('artist_id', _('Artist does not exist')))
 
     except IntegrityError:
-        errors.append(make_errors('name', _("Artist's album with given name already exists")))
+        errors.append(make_errors(
+            'name', _("Artist's album with given name already exists")))
     raise ValidationError(errors)
 
 
 @router.get('', response=List[AlbumArtistTrackCount], auth=None)
 @paginate
 async def get_albums(request, filters: Query[AlbumFilter]):
-    qs = Album.objects.select_related('artist').annotate(track_count=Count('track'))
+    qs = Album.objects.select_related(
+        'artist').annotate(track_count=Count('track'))
     return await sync_to_async(list)(filters.filter(qs))
 
 
 @router.get('/{int:albumID}', response=AlbumFull, auth=None)
 async def get_album(request, albumID: int):
-    qs = Album.objects.prefetch_related('artist', 'track_set', 'track_set__artists')
+    qs = Album.objects.prefetch_related(
+        'artist', 'track_set', 'track_set__artists')
     album = await aget_object_or_404(qs, pk=albumID)
+    return album
+
+
+@router.put('/{int:albumID}', response=AlbumArtist)
+async def update_album(request, albumID: int, data: Form[AlbumSchemaIn], cover: UploadedFile = File(None)):
+    errors = []
+    args = data.dict(exclude_unset=True)
+    image_ok = cover is not None and image_is_valid(cover)
+    try:
+        artist = await Artist.objects.aget(pk=data.artist_id)
+        album = await Album.objects.aget(pk=albumID)
+        del args['artist_id']
+        # Update existing album
+        album.artist = artist
+        for k, value in args.items():
+            setattr(album, k, value)
+
+        # Delete old picture and set new one
+        if image_ok:
+            await sync_to_async(album.cover.delete)(save=False)
+            await sync_to_async(album.cover.save)(cover.name, cover)
+        else:
+            await album.asave()
+
+    # If artist does not exist, there's no point in updating the resource
+    except Artist.DoesNotExist:
+        errors.append(make_errors('artist_id', _('Artist does not exist')))
+
+    except Album.DoesNotExist:
+        if image_ok:
+            args['cover'] = cover
+        album = await Album.objects.acreate(
+            artist=artist, **args)
+
+    except IntegrityError:
+        errors.append(make_errors('name', _("Artist's album already exists")))
+
+    if errors:
+        raise ValidationError(errors)
     return album

@@ -99,3 +99,11 @@ async def update_album(request, albumID: int, data: Form[AlbumSchemaIn], cover: 
     if errors:
         raise ValidationError(errors)
     return album
+
+
+@router.delete('/{int:albumID}', response={204: None})
+async def delete_album(request, albumID: int):
+    album = await aget_object_or_404(Album, pk=albumID)
+    await sync_to_async(album.cover.delete)(save=False)
+    await album.adelete()
+    return 204, None

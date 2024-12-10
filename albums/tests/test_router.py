@@ -136,3 +136,34 @@ class TestRouter(TestHelper):
             }
             self.assertEqual(response.status_code, 200)
             self.assertJSONEqual(response.content, expected)
+
+    async def test_regular_user_can_not_delete_album(self):
+        user = await self.create_user()
+        head = {'Authorization': f"Bearer {user.token}"}
+        artist2 = await self.create_artist(name='Johnny Cash')
+        album = await Album.objects.acreate(name='CHS', artist=artist2)
+
+        response = await self.client.delete(f"/{album.pk}", headers=head)
+
+        self.assertEqual(response.status_code, 401)
+
+    async def test_staff_member_can_delete_album(self):
+        member = await self.create_staff_member()
+        head = {'Authorization': f"Bearer {member.token}"}
+        artist2 = await self.create_artist(name='Johnny Cash')
+
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s, open(self.get_fp("image.jpg"), "rb") as f:
+            file = self.temp_file(File(f, 'image.jpg'), write=True)
+            album = await Album.objects.acreate(
+                name='CHS', artist=artist2, cover=file)
+
+            self.assertTrue(self.fileExists(td, 'albums/image.jpg'))
+
+            response = await self.client.delete(
+                f"/{album.pk}", headers=head)
+            response2 = await self.client.delete(
+                f"/{album.pk}", headers=head)
+
+            self.assertFalse(self.fileExists(td, 'albums/image.jpg'))
+            self.assertEqual(response.status_code, 204)
+            self.assertEqual(response2.status_code, 404)

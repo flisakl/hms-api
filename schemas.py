@@ -35,6 +35,7 @@ class TrackSchema(ModelSchema):
             'number', 'year', 'cover', 'file'
         ]
 
+
 # COLLECTION SCHEMAS
 class ArtistAlbumCount(ArtistSchema):
     album_count: Optional[int] = Field(0)
@@ -51,6 +52,9 @@ class AlbumArtistTrackCount(AlbumArtist):
 class TrackArtists(TrackSchema):
     artists: List[ArtistSchema] = Field([])
 
+
+class TrackFull(TrackArtists):
+    album: AlbumSchema = Field(None)
 
 # SINGLE RESOURCE SCHEMAS
 class ArtistFull(ArtistSchema):

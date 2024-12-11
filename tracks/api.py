@@ -17,7 +17,7 @@ import mimetypes
 from users.api import AsyncHttpBearer
 from helpers import make_errors, image_is_valid, is_audio_file
 
-from schemas import TrackFull, TrackFilter
+from schemas import TrackFull, TrackFilter, TrackSchemaIn
 from tracks.models import Track
 from albums.models import Album
 from artists.models import Artist
@@ -106,18 +106,15 @@ async def get_or_create_album(tags, cache):
         if not albumArtist.image:
             image = None
             images = tags.get("images")
-            keys = images.keys()
-            for key in keys:
-                if key in [
+            for key, value in images.items():
+                if value['type'] in [
                         PictureType.BAND_LOGOTYPE,
                         PictureType.LEAD_ARTIST, PictureType.ARTIST,
                         PictureType.BAND]:
                     image = images[key]
+                    await attach_image_to_model(
+                        image, albumArtist.name, albumArtist, 'image', True, True)
                     break
-            # Attach image to artist
-            if image:
-                await attach_image_to_model(
-                    image, image.name, albumArtist, 'image', True, True)
 
         cache['artists'][album_artist_name] = albumArtist
         album, created = await Album.objects.aget_or_create(
@@ -158,6 +155,41 @@ async def get_or_create_artists(tags, cache):
             cache["artists"][aname] = artist
         objs.append(artist)
     return objs
+
+
+@router.post('', response={201: TrackFull})
+async def create_track(request, data: Form[TrackSchemaIn], file: UploadedFile = File(...), cover: UploadedFile = File(None)):
+    # File metadata are ignored by this function, upload endpoint should be used instead
+    errors = []
+    clean_data = data.dict(exclude_unset=True)
+
+    # Check if file is an actual audio file
+    if not is_audio_file(file):
+        raise ValidationError(
+            [make_errors('file', _('File is not an audio file'))])
+
+    dur = timedelta(seconds=mutagen.File(file.temporary_file_path()).info.length)
+
+    artist_ids = [int(x) for x in clean_data.pop('artist_ids', []).split(',')]
+    t = await Track.objects.acreate(duration=dur, file=file, **clean_data)
+
+    # Check if album exists
+    if album_id := clean_data.get('album_id'):
+        if not await Album.objects.filter(pk=album_id).aexists():
+            errors.append(make_errors('album_id', _('Album does not exist')))
+    # Track is not part of any album, check if cover is valid image and attach it
+    elif cover and image_is_valid(cover):
+        t.cover = cover
+
+    # Get as many aritists from database
+    qs = Artist.objects.filter(pk__in=artist_ids)
+    db_artists = await sync_to_async(list)(qs)
+
+    # Attach artists to track
+    await t.artists.aadd(*db_artists)
+    return 201, await Track.objects.prefetch_related(
+        'artists', 'album', 'album__artist').aget(pk=t.pk)
+
 
 
 @router.post('/upload', response=List[TrackFull])

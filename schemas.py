@@ -57,6 +57,8 @@ class TrackFull(TrackArtists):
     album: AlbumSchema = Field(None)
 
 # SINGLE RESOURCE SCHEMAS
+
+
 class ArtistFull(ArtistSchema):
     albums: List[AlbumSchema] = Field([], alias='album_set')
 
@@ -99,3 +101,13 @@ class AlbumSchemaIn(Schema):
     genre: Optional[str] = Field(None)
     year: Optional[int] = Field(None)
     artist_id: int
+
+
+class TrackSchemaIn(Schema):
+    # This will be comma separated list of integers
+    artist_ids: Optional[str] = Field("")
+    album_id: Optional[int] = Field(None)
+    title: Optional[str] = Field("Unknown")
+    genre: Optional[str] = Field(None)
+    number: Optional[int] = Field(None)
+    year: Optional[int] = Field(None)

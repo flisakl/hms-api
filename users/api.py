@@ -47,7 +47,7 @@ class AsyncHttpBearer(HttpBearer):
         try:
             user = await User.objects.aget(token=token)
         except User.DoesNotExist:
-            pass
+            return
 
         # If either of options has been specified we can return the user
         if self.staff == self.super and self.staff is None:

@@ -23,7 +23,39 @@ class TestAPI(TestHelper):
 
         self.assertEqual(response.status_code, 401)
 
-    async def test_user_can_upload_music_files(self):
+    async def test_staff_member_can_create_track(self):
+        member = await self.create_staff_member()
+        head = self.make_auth_header(member)
+
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td, FILE_UPLOAD_TEMP_DIR=td) as s, open(self.get_fp("song.mp3"), "rb") as f, open(self.get_fp("image.jpg"), "rb") as im:
+            a = await self.create_artist('Black Label Society')
+            await self.create_album('Doom Crew', a)
+            files = {
+                'file': self.temp_file(File(f, 'song.mp3'), 'audio/mpeg', write=True),
+                'cover': self.temp_file(File(f, 'imag.jpg'), 'image/jpeg', write=True),
+            }
+            data = {
+                'artist_ids': '1,2,3',
+                'album_id': 1,
+                'genre': 'Metal',
+                'title': 'Set You Free',
+                'year': 2022,
+                'number': 2
+            }
+            response = await self.client.post('', data, FILES=files, headers=head)
+
+        json = response.json()
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(json['title'], data['title'])
+        self.assertEqual(json['artists'][0]['name'], 'Black Label Society')
+        self.assertEqual(json['genre'], data['genre'])
+        self.assertEqual(json['year'], data['year'])
+        self.assertEqual(json['number'], data['number'])
+        self.assertEqual(json['genre'], data['genre'])
+        self.assertEqual(json['album']['id'], data['album_id'])
+
+
+    async def test_staff_member_can_upload_music_files(self):
         member = await self.create_staff_member()
         head = self.make_auth_header(member)
 

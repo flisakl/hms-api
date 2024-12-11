@@ -193,3 +193,13 @@ async def upload_tracks(request, tracks: List[UploadedFile] = File([])):
 async def get_tracks(request, filters: Query[TrackFilter]):
     qs = Track.objects.prefetch_related('artists', 'album')
     return await sync_to_async(list)(filters.filter(qs))
+
+
+@router.delete('/{int:trackID}', response={204: None})
+async def delete_track(request, trackID: int):
+    track = await aget_object_or_404(Track, pk=trackID)
+    if track.cover:
+        await sync_to_async(track.cover.delete)(save=False)
+    await sync_to_async(track.file.delete)(save=False)
+    await track.adelete()
+    return 204, None

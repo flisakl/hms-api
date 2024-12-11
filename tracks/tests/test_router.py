@@ -4,7 +4,6 @@ from django.utils.datastructures import MultiValueDict
 from django.core.files import File
 from ninja.testing import TestAsyncClient
 from datetime import timedelta
-from os import path
 import tempfile
 
 from helpers import TestHelper
@@ -96,3 +95,39 @@ class TestAPI(TestHelper):
         response = await self.client.get('?year_start=2000')
         json = response.json()
         self.assertEqual(json['count'], 1)
+
+    async def test_regular_user_can_not_delete_track(self):
+        user = await self.create_user()
+        head = self.make_auth_header(user)
+        cf = ContentFile(b'', 'test.jpg')
+        track = Track(title='test', file=cf, duration=timedelta(seconds=1))
+
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td):
+            await track.asave()
+            response = await self.client.delete(
+                f"/{track.pk}", headers=head)
+
+            self.assertEqual(response.status_code, 401)
+            self.assertTrue(self.fileExists(td, 'tracks/test.jpg'))
+
+    async def test_staff_member_can_delete_track(self):
+        user = await self.create_staff_member()
+        head = self.make_auth_header(user)
+        cf = ContentFile(b'', 'test.jpg')
+        af = ContentFile(b'', 'test.mp3')
+        track = Track(title='test', file=cf, duration=timedelta(seconds=1),
+                      cover=af)
+
+        with tempfile.TemporaryDirectory() as td, self.settings(MEDIA_ROOT=td):
+            await track.asave()
+            self.assertTrue(self.fileExists(td, 'tracks/test.jpg'))
+            self.assertTrue(self.fileExists(td, 'tracks/test.mp3'))
+            response = await self.client.delete(
+                f"/{track.pk}", headers=head)
+            response2 = await self.client.delete(
+                f"/{track.pk}", headers=head)
+
+            self.assertEqual(response.status_code, 204)
+            self.assertFalse(self.fileExists(td, 'tracks/test.jpg'))
+            self.assertFalse(self.fileExists(td, 'tracks/test.mp3'))
+            self.assertEqual(response2.status_code, 404)

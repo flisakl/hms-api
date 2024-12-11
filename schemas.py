@@ -80,6 +80,19 @@ class AlbumFilter(FilterSchema):
     has_image: Optional[InvertedBool] = Field(None, q="cover__isnull")
 
 
+class TrackFilter(FilterSchema):
+    title: Optional[str] = Field(None, q='title__icontains')
+    genre: Optional[str] = Field(None, q='genre__icontains')
+    artist: Optional[str] = Field(None, q='artists__name__icontains')
+    artist_id: Optional[int] = Field(None, q='artists__id')
+    year: Optional[int] = Field(None, q='year')
+    year_start: Optional[int] = Field(None, q='year__gte')
+    year_end: Optional[int] = Field(None, q='year__lte')
+    album: Optional[str] = Field(None, q='album__name__icontains')
+    album_id: Optional[int] = Field(None, q='album__id')
+    has_image: Optional[InvertedBool] = Field(None, q="cover__isnull")
+
+
 # INPUT SCHEMAS
 class AlbumSchemaIn(Schema):
     name: str

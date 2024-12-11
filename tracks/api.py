@@ -17,7 +17,7 @@ import mimetypes
 from users.api import AsyncHttpBearer
 from helpers import make_errors, image_is_valid, is_audio_file
 
-from schemas import TrackFull
+from schemas import TrackFull, TrackFilter
 from tracks.models import Track
 from albums.models import Album
 from artists.models import Artist
@@ -186,3 +186,10 @@ async def upload_tracks(request, tracks: List[UploadedFile] = File([])):
     qs = Track.objects.prefetch_related(
         'artists', 'album', 'album__artist').filter(pk__in=output)
     return await sync_to_async(list)(qs)
+
+
+@router.get('', response=List[TrackFull], auth=None)
+@paginate
+async def get_tracks(request, filters: Query[TrackFilter]):
+    qs = Track.objects.prefetch_related('artists', 'album')
+    return await sync_to_async(list)(filters.filter(qs))
